@@ -1,0 +1,63 @@
+"""RandLA-Net adapter for the Segmenter interface."""
+from __future__ import annotations
+from pathlib import Path
+import numpy as np
+
+try:
+    import torch
+except ImportError:  # keep geometry pipeline usable without torch installed
+    torch = None
+
+from ..base import Segmenter
+
+
+class RandLANetSegmenter(Segmenter):
+    num_classes = 6
+
+    def __init__(self, weights: str | Path | None = None, device: str = "cuda",
+                 points_per_tile: int = 65536, in_feat_dim: int = 5):
+        if torch is None:
+            raise ImportError("Install torch to use RandLANetSegmenter")
+        from .model import RandLANet
+        self.device = device if torch.cuda.is_available() else "cpu"
+        self.in_feat_dim = in_feat_dim
+        self.model = RandLANet(in_feat_dim=in_feat_dim,
+                               num_classes=self.num_classes).to(self.device)
+        if weights is not None:
+            sd = torch.load(str(weights), map_location=self.device)
+            self.model.load_state_dict(sd.get("model", sd))
+        self.model.eval()
+        self.N = points_per_tile
+
+    @torch.inference_mode() if torch is not None else (lambda f: f)
+    def predict(self, xyz: np.ndarray, features: np.ndarray | None = None) -> np.ndarray:
+        n = len(xyz)
+        if features is None:
+            features = np.zeros((n, self.in_feat_dim), dtype=np.float32)
+        # features already have the unified layout; pass through
+        feats = features.astype(np.float32)
+
+        # Pad to N with random duplicates if small; else random-subsample in chunks.
+        probs = np.zeros((n, self.num_classes), dtype=np.float32)
+        counts = np.zeros(n, dtype=np.int32)
+
+        rng = np.random.default_rng(0)
+        cursor = 0
+        while cursor < n:
+            take = min(self.N, n - cursor)
+            idx = np.arange(cursor, cursor + take)
+            if take < self.N:
+                pad = rng.choice(n, size=self.N - take, replace=True)
+                idx_all = np.concatenate([idx, pad])
+            else:
+                idx_all = idx
+            xyz_t = torch.from_numpy(xyz[idx_all]).float().unsqueeze(0).to(self.device)
+            f_t = torch.from_numpy(feats[idx_all]).float().unsqueeze(0).to(self.device)
+            logits = self.model(xyz_t, f_t)                   # (1,N,C)
+            p = torch.softmax(logits, dim=-1).squeeze(0).cpu().numpy()
+            # accumulate only on the "real" part
+            probs[idx] += p[:take]
+            counts[idx] += 1
+            cursor += take
+        counts = np.maximum(counts, 1)
+        return probs / counts[:, None]
