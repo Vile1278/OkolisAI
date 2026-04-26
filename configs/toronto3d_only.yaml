@@ -21,5 +21,5 @@ steps_per_epoch: 500
 
 datasets:
   toronto3d:
-    root: C:\Users\ivanv\Documents\Claude\Projects\Toronto3D     # <-- EDIT: apsolutna putanja do tvojih L00x.ply
+    root: C:\Users\Ivan\Desktop\Toronto_3D\Toronto_3D    # <-- EDIT: apsolutna putanja do tvojih L00x.ply
     weight: 1.0

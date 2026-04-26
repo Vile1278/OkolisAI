@@ -17,15 +17,15 @@ from ..ml.randlanet.model import RandLANet
 from ..datasets.builders import build_datasets, build_sampler
 from .losses import LovaszSoftmax, class_weighted_ce
 
-
 def _collate(batch):
-    # Each item is (xyz (N,3), feats (N,F), labels (N,)); N identical per item
-    # because we pad in __getitem__. Stack into (B, N, *).
-    xyz = torch.from_numpy(__import__("numpy").stack([b[0] for b in batch]))
-    feats = torch.from_numpy(__import__("numpy").stack([b[1] for b in batch]))
-    labels = torch.from_numpy(__import__("numpy").stack([b[2] for b in batch]))
+    import numpy as np
+    def _t(x):
+        return torch.from_numpy(x) if isinstance(x, np.ndarray) else x
+    xyz = torch.stack([_t(b[0]).float() for b in batch])
+    feats = torch.stack([_t(b[1]).float() for b in batch])
+    labels = torch.stack([_t(b[2]).long() for b in batch])
+    feats = torch.nan_to_num(feats, nan=0.0)
     return xyz, feats, labels
-
 
 def train(cfg: dict):
     device = "cuda" if torch.cuda.is_available() else "cpu"
