@@ -6,8 +6,8 @@ lr: 0.0008
 num_workers: 2
 out_dir: ./runs/toronto3d_gtx1060
 class_weights: [0.0, 1.0, 1.5, 2.0, 1.0, 1.5]
-crop_points: 24576
-voxel: 0.04
+crop_points: 16384
+voxel: 0.05
 augment: true
 modality_dropout: true
 steps_per_epoch: 200
