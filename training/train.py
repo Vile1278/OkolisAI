@@ -39,7 +39,7 @@ def train(cfg: dict):
         num_workers=cfg.get("num_workers", 4), collate_fn=_collate, drop_last=True)
     val_loader = DataLoader(
         val_ds, batch_size=cfg["batch_size"], shuffle=False,
-        num_workers=2, collate_fn=_collate) if val_ds else None
+        num_workers=0, collate_fn=_collate) if val_ds else None
 
     model = RandLANet(in_feat_dim=cfg.get("in_feat_dim", 5),
                       num_classes=cfg["num_classes"]).to(device)
