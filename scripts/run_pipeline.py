@@ -139,7 +139,7 @@ def build_scene(ply_path: Path, model_weights: Path | None = None,
     print(f"[pipeline] Running ML segmentation ({len(xyz)} points, chunks of {max_points})...")
     probs = _chunked_segment(segmenter, xyz, feats, max_points=max_points)
 
-    segments = fuse(segments, probs)
+    segments = fuse(segments, probs, rgb=rgb)
 
     walls = []
     plane_refs = [(p.normal, p.centroid) for p in planes]
