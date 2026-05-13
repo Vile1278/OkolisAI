@@ -9,7 +9,7 @@ from ..geometry.features import SegmentFeatures
 
 SemanticLabel = Literal[
     "unlabeled", "ground", "road", "sidewalk",
-    "building", "fence", "vegetation", "pole"
+    "building", "fence", "vegetation", "vehicle"
 ]
 SegmentKind   = Literal["plane", "cluster", "ground"]
 

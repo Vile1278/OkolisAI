@@ -2,10 +2,10 @@
 
 Geometry priors tuned for iPhone LiDAR outdoor scans.
 Key principle: geometry OVERRIDES ML when shape is unambiguous:
-  - vertical + planar + wide  → building (never ground, never pole)
-  - vertical + thin + linear  → pole
+  - vertical + planar + wide  → building (never ground)
   - horizontal + flat         → ground/road/sidewalk
   - non-planar + spread       → vegetation
+  - compact + low + non-planar → vehicle
 All rules use coordinate-system-independent features (no absolute Z).
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ CLASSES: list[SemanticLabel] = [
     "building",    # 4
     "fence",       # 5
     "vegetation",  # 6
-    "pole",        # 7
+    "vehicle",     # 7
 ]
 IDX = {c: i for i, c in enumerate(CLASSES)}
 
@@ -47,7 +47,7 @@ def _color_prior(rgb: np.ndarray, indices: np.ndarray) -> dict[str, float]:
         greenness = (mean_g - max(mean_r, mean_b))
         priors["vegetation"] = 1.0 + greenness * 8.0
         priors["building"] = max(0.2, 1.0 - greenness * 5.0)
-        priors["pole"] = max(0.2, 1.0 - greenness * 5.0)
+        priors["vehicle"] = max(0.3, 1.0 - greenness * 3.0)
 
     # Gray/beige (concrete, plaster) → building material
     spread = max(abs(mean_r - mean_g), abs(mean_g - mean_b), abs(mean_r - mean_b))
@@ -92,22 +92,24 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
         s[IDX["ground"]] *= 0.1
         s[IDX["road"]] *= 0.1
 
-    # Rule 2: Anything wider than 1m in ANY direction cannot be a pole.
-    if horiz_extent > 1.0:
-        s[IDX["pole"]] *= 0.02
+    # Rule 2: Very tall segments (>3m) are not vehicles (cars are ~1.5m tall).
+    if f.height_range > 3.0:
+        s[IDX["vehicle"]] *= 0.05
 
-    # Rule 3: Segments with many points are not individual poles.
-    if f.n_points > 500:
-        s[IDX["pole"]] *= 0.1
+    # Rule 3: Very wide planar segments are not vehicles.
+    if f.planarity > 0.5 and horiz_extent > 4.0:
+        s[IDX["vehicle"]] *= 0.05
 
     # ── Planes ──────────────────────────────────────────────────────
     if seg.kind == "plane":
+
+        # Planes are flat surfaces — vehicles are NOT planar.
+        s[IDX["vehicle"]] *= 0.1
 
         if f.verticality > 0.6:
             # Large vertical planar → BUILDING
             if f.planarity > 0.3 and horiz_extent > 1.0:
                 s[IDX["building"]] *= 4.0
-                s[IDX["pole"]] *= 0.05
                 s[IDX["vegetation"]] *= 0.2
                 s[IDX["ground"]] *= 0.0
                 s[IDX["road"]] *= 0.0
@@ -116,7 +118,6 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
             # Very large wall
             if f.planarity > 0.3 and (horiz_extent > 3.0 or area_proxy > 2.0):
                 s[IDX["building"]] *= 5.0
-                s[IDX["pole"]] *= 0.01
                 s[IDX["fence"]] *= 0.3
 
             # Medium vertical, short → fence
@@ -137,7 +138,7 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
         if f.verticality < 0.3:
             s[IDX["building"]] *= 0.0
             s[IDX["fence"]] *= 0.0
-            s[IDX["pole"]] *= 0.0
+            s[IDX["vehicle"]] *= 0.0
             s[IDX["ground"]] *= 1.5
             s[IDX["road"]] *= 1.3
             s[IDX["sidewalk"]] *= 1.3
@@ -146,7 +147,6 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
         if 0.3 <= f.verticality <= 0.6:
             if f.planarity > 0.3 and horiz_extent > 1.5:
                 s[IDX["building"]] *= 3.0
-                s[IDX["pole"]] *= 0.05
                 s[IDX["fence"]] *= 0.2
                 s[IDX["ground"]] *= 0.1
 
@@ -154,10 +154,6 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
         if max(f.extent) < 0.4:
             s[IDX["building"]] *= 0.1
             s[IDX["fence"]] *= 0.3
-
-        # Wide = not pole
-        if min_horiz > 0.5:
-            s[IDX["pole"]] *= 0.1
 
     # ── Ground-origin segments ──────────────────────────────────────
     if seg.kind == "ground":
@@ -171,11 +167,10 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
             s[IDX["building"]] *= 0.0
             s[IDX["fence"]] *= 0.0
             s[IDX["vegetation"]] *= 0.3
-            s[IDX["pole"]] *= 0.0
+            s[IDX["vehicle"]] *= 0.0
             s[IDX["unlabeled"]] *= 0.2
         else:
             # "Ground" segment that is actually vertical/tall → likely wall
-            # Don't veto building — let other rules decide
             s[IDX["ground"]] *= 0.5
             if f.verticality > 0.4:
                 s[IDX["building"]] *= 2.0
@@ -184,7 +179,7 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
     # ── Clusters ────────────────────────────────────────────────────
     if seg.kind == "cluster":
 
-        # ---- VERTICAL clusters → building or fence or pole ----
+        # ---- VERTICAL clusters → building or fence ----
         if f.verticality > 0.4:
             # Ground/road/sidewalk VETOED for any vertical cluster
             s[IDX["ground"]] *= 0.02
@@ -194,32 +189,27 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
             # Large + planar → building wall
             if f.planarity > 0.3 and horiz_extent > 1.0:
                 s[IDX["building"]] *= 4.0
-                s[IDX["pole"]] *= 0.05
+                s[IDX["vehicle"]] *= 0.1
 
             # Large even with moderate planarity → building
             if f.n_points > 200 and horiz_extent > 2.0:
                 s[IDX["building"]] *= 3.0
-                s[IDX["pole"]] *= 0.1
+                s[IDX["vehicle"]] *= 0.2
 
             # Very large → almost certainly building
             if f.n_points > 500 or horiz_extent > 3.0 or area_proxy > 4.0:
                 s[IDX["building"]] *= 3.0
-                s[IDX["pole"]] *= 0.02
+                s[IDX["vehicle"]] *= 0.05
 
             # Tall (>2m height range) → building
             if f.height_range > 2.0:
                 s[IDX["building"]] *= 2.0
                 s[IDX["fence"]] *= 0.3
+                s[IDX["vehicle"]] *= 0.2
 
             # Medium height, moderate size → fence
             if f.height_range < 2.0 and 0.5 < horiz_extent < 4.0 and f.planarity > 0.3:
                 s[IDX["fence"]] *= 1.8
-
-            # Thin + linear → actual pole
-            if (f.linearity > 0.7 and f.height_range > 1.0
-                    and max(f.extent[0], f.extent[1]) < 0.5):
-                s[IDX["pole"]] *= 3.0
-                s[IDX["building"]] *= 0.1
 
         # ---- HORIZONTAL clusters ----
         if f.verticality < 0.3:
@@ -228,7 +218,19 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
                 s[IDX["ground"]] *= 1.5
                 s[IDX["sidewalk"]] *= 1.5
                 s[IDX["building"]] *= 0.0
-                s[IDX["pole"]] *= 0.0
+
+        # ---- VEHICLE-like ----
+        # Compact, non-planar, moderate size, low height range
+        # Cars: ~4.5m long × ~1.8m wide × ~1.5m tall
+        if (f.planarity < 0.4
+                and 1.0 < horiz_extent < 6.0
+                and 0.5 < min_horiz < 3.0
+                and 0.8 < f.height_range < 2.5
+                and f.n_points > 100):
+            s[IDX["vehicle"]] *= 3.0
+            s[IDX["building"]] *= 0.3
+            s[IDX["vegetation"]] *= 0.5
+            s[IDX["fence"]] *= 0.2
 
         # ---- VEGETATION-like ----
         # Non-planar, spread → vegetation (not building!)
@@ -247,14 +249,6 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
             s[IDX["building"]] *= 0.0
             s[IDX["fence"]] *= 0.0
             s[IDX["vegetation"]] *= 1.5
-
-        # ---- General pole suppression ----
-        # Wide = not pole
-        if min_horiz > 0.5:
-            s[IDX["pole"]] *= 0.1
-        # Many points = not a single pole
-        if f.n_points > 300:
-            s[IDX["pole"]] *= 0.2
 
     # ── Renormalize ─────────────────────────────────────────────────
     s = np.maximum(s, 0)

@@ -21,7 +21,7 @@ CLASS_NAMES = [
     "building",    # 4
     "fence",       # 5
     "vegetation",  # 6
-    "pole",        # 7
+    "vehicle",     # 7
 ]
 
 CLASS_COLORS = {
@@ -32,7 +32,7 @@ CLASS_COLORS = {
     4: [0.90, 0.20, 0.20],   # building   — red
     5: [0.90, 0.60, 0.10],   # fence      — orange
     6: [0.10, 0.65, 0.10],   # vegetation — green
-    7: [0.90, 0.90, 0.20],   # pole       — yellow
+    7: [0.20, 0.40, 0.90],   # vehicle    — blue
 }
 
 
@@ -159,7 +159,7 @@ def main():
 
     print("\nOpening viewer (close window to exit)...")
     print("Colors: brown=ground, dark-gray=road, light-gray=sidewalk,")
-    print("        red=building, orange=fence, green=vegetation, yellow=pole")
+    print("        red=building, orange=fence, green=vegetation, blue=vehicle")
     o3d.visualization.draw_geometries([pcd_vis], window_name="Okolis AI - Segmentation")
 
 

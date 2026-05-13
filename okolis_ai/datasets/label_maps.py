@@ -1,7 +1,7 @@
 """Unified label taxonomy and per-dataset remaps.
 
 Target classes (must match trained model — 8 classes):
-    0 unlabeled | 1 ground | 2 road | 3 sidewalk | 4 building | 5 fence | 6 vegetation | 7 pole
+    0 unlabeled | 1 ground | 2 road | 3 sidewalk | 4 building | 5 fence | 6 vegetation | 7 vehicle
 """
 NUM_CLASSES = 8
 
@@ -13,7 +13,7 @@ UNIFIED = {
     "building": 4,
     "fence": 5,
     "vegetation": 6,
-    "pole": 7,
+    "vehicle": 7,
 }
 
 CLASS_NAMES = [
@@ -24,7 +24,7 @@ CLASS_NAMES = [
     "building",    # 4
     "fence",       # 5
     "vegetation",  # 6
-    "pole",        # 7
+    "vehicle",     # 7
 ]
 
 CLASS_COLORS = {
@@ -35,7 +35,7 @@ CLASS_COLORS = {
     4: [0.90, 0.20, 0.20],   # building   — red
     5: [0.90, 0.60, 0.10],   # fence      — orange
     6: [0.10, 0.65, 0.10],   # vegetation — green
-    7: [0.90, 0.90, 0.20],   # pole       — yellow
+    7: [0.20, 0.40, 0.90],   # vehicle    — blue
 }
 
 # ---- Toronto-3D (8 classes in original) ----
@@ -47,9 +47,9 @@ TORONTO3D_MAP = {
     2: UNIFIED["road"],        # road marking → road
     3: UNIFIED["vegetation"],  # natural → vegetation
     4: UNIFIED["building"],    # building
-    5: UNIFIED["pole"],        # utility line → pole (overhead structure)
-    6: UNIFIED["pole"],        # pole
-    7: UNIFIED["unlabeled"],   # car → unlabeled (not in our taxonomy)
+    5: UNIFIED["unlabeled"],   # utility line → unlabeled (no pole class)
+    6: UNIFIED["unlabeled"],   # pole → unlabeled
+    7: UNIFIED["vehicle"],     # car → vehicle
     8: UNIFIED["fence"],       # fence
 }
 
@@ -57,16 +57,20 @@ TORONTO3D_MAP = {
 SEMKITTI_MAP = {
     0:  UNIFIED["unlabeled"],
     9:  UNIFIED["road"],       # road
-    10: UNIFIED["sidewalk"],   # sidewalk (was ground in old 6-class)
+    10: UNIFIED["sidewalk"],   # sidewalk
     11: UNIFIED["ground"],     # other-ground
     13: UNIFIED["building"],   # building
     14: UNIFIED["fence"],      # fence
     15: UNIFIED["vegetation"], # vegetation
     16: UNIFIED["vegetation"], # trunk → vegetation
     17: UNIFIED["ground"],     # terrain → ground
-    18: UNIFIED["pole"],       # pole
-    19: UNIFIED["pole"],       # traffic sign → pole
-    1:  UNIFIED["unlabeled"],  # car → unlabeled
+    18: UNIFIED["unlabeled"],  # pole → unlabeled
+    19: UNIFIED["unlabeled"],  # traffic sign → unlabeled
+    1:  UNIFIED["vehicle"],    # car → vehicle
+    2:  UNIFIED["vehicle"],    # bicycle → vehicle
+    3:  UNIFIED["vehicle"],    # motorcycle → vehicle
+    4:  UNIFIED["vehicle"],    # truck → vehicle
+    5:  UNIFIED["vehicle"],    # other-vehicle → vehicle
 }
 
 # ---- BotanicGarden (continuous classes) ----
@@ -74,7 +78,7 @@ BOTANIC_MAP = {
     0: UNIFIED["unlabeled"],
     1: UNIFIED["ground"],
     2: UNIFIED["vegetation"],
-    3: UNIFIED["pole"],        # object → pole (closest match)
+    3: UNIFIED["unlabeled"],   # object → unlabeled
     4: UNIFIED["building"],    # wall → building
 }
 
@@ -84,7 +88,7 @@ S3DIS_MAP = {
     "floor":   UNIFIED["ground"],
     "wall":    UNIFIED["building"],
     "beam":    UNIFIED["building"],
-    "column":  UNIFIED["pole"],
+    "column":  UNIFIED["unlabeled"],   # column → unlabeled (no pole)
     "window":  UNIFIED["building"],
     "door":    UNIFIED["building"],
     "table":   UNIFIED["unlabeled"],
