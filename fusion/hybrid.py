@@ -81,13 +81,18 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
     # ══════════════════════════════════════════════════════════════════
 
     # Rule 1: Vertical things cannot be ground/road/sidewalk.
-    if f.verticality > 0.5 and f.height_range > 0.5:
+    if f.verticality > 0.4 and f.height_range > 0.5:
         s[IDX["ground"]] *= 0.05
         s[IDX["road"]] *= 0.05
         s[IDX["sidewalk"]] *= 0.05
 
+    # Rule 1b: Tall things (>1.5m height range) cannot be ground, even at
+    # moderate verticality. Ground is flat by definition.
+    if f.height_range > 1.5:
+        s[IDX["ground"]] *= 0.1
+        s[IDX["road"]] *= 0.1
+
     # Rule 2: Anything wider than 1m in ANY direction cannot be a pole.
-    # Poles are thin vertical structures, never >0.5m wide.
     if horiz_extent > 1.0:
         s[IDX["pole"]] *= 0.02
 
@@ -156,14 +161,25 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
 
     # ── Ground-origin segments ──────────────────────────────────────
     if seg.kind == "ground":
-        s[IDX["ground"]] *= 3.0
-        s[IDX["road"]] *= 1.5
-        s[IDX["sidewalk"]] *= 1.5
-        s[IDX["building"]] *= 0.0
-        s[IDX["fence"]] *= 0.0
-        s[IDX["vegetation"]] *= 0.3
-        s[IDX["pole"]] *= 0.0
-        s[IDX["unlabeled"]] *= 0.2
+        # Ground extraction can mis-capture vertical surfaces.
+        # Only apply strong ground prior if the segment is actually flat.
+        if f.verticality < 0.3 and f.height_range < 2.0:
+            # Genuinely flat ground
+            s[IDX["ground"]] *= 3.0
+            s[IDX["road"]] *= 1.5
+            s[IDX["sidewalk"]] *= 1.5
+            s[IDX["building"]] *= 0.0
+            s[IDX["fence"]] *= 0.0
+            s[IDX["vegetation"]] *= 0.3
+            s[IDX["pole"]] *= 0.0
+            s[IDX["unlabeled"]] *= 0.2
+        else:
+            # "Ground" segment that is actually vertical/tall → likely wall
+            # Don't veto building — let other rules decide
+            s[IDX["ground"]] *= 0.5
+            if f.verticality > 0.4:
+                s[IDX["building"]] *= 2.0
+                s[IDX["ground"]] *= 0.1
 
     # ── Clusters ────────────────────────────────────────────────────
     if seg.kind == "cluster":
@@ -215,10 +231,16 @@ def _apply_geom_prior(seg: Segment, scores: np.ndarray,
                 s[IDX["pole"]] *= 0.0
 
         # ---- VEGETATION-like ----
-        # Non-planar, spread → vegetation
-        if f.planarity < 0.25 and f.sphericity > 0.15 and horiz_extent > 0.5:
-            s[IDX["vegetation"]] *= 2.0
-            s[IDX["building"]] *= 0.4
+        # Non-planar, spread → vegetation (not building!)
+        if f.planarity < 0.3 and f.sphericity > 0.1:
+            s[IDX["vegetation"]] *= 2.5
+            s[IDX["building"]] *= 0.3
+            s[IDX["fence"]] *= 0.3
+
+        # Low verticality cluster → not a wall
+        if f.verticality < 0.3:
+            s[IDX["building"]] *= 0.3
+            s[IDX["vegetation"]] *= 1.5
 
         # Short, compact blob → bush/vegetation
         if f.height_range < 0.5 and max(f.extent[:2]) < 1.0 and f.planarity < 0.3:
