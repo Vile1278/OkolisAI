@@ -52,7 +52,7 @@ def test_extend_wall_when_present():
         save_ply(pcd, ply)
         scene = build_scene(ply, model_weights=None, voxel=0.05)
     if not scene.walls:
-        # Without a trained model, uniform probs may not yield "wall" label.
+        # Without a trained model, uniform probs may not yield "building" label.
         # That's acceptable; the geometry pipeline still produced plane segments.
         return
     before = len(scene.points)

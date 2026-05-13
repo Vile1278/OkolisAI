@@ -7,7 +7,10 @@ import numpy as np
 
 from ..geometry.features import SegmentFeatures
 
-SemanticLabel = Literal["unlabeled", "ground", "road", "wall", "nature", "object"]
+SemanticLabel = Literal[
+    "unlabeled", "ground", "road", "sidewalk",
+    "building", "fence", "vegetation", "pole"
+]
 SegmentKind   = Literal["plane", "cluster", "ground"]
 
 

@@ -56,7 +56,7 @@ def _chunked_segment(segmenter, xyz, feats, max_points=16384):
     import torch
 
     N = len(xyz)
-    num_classes = segmenter.num_classes if hasattr(segmenter, 'num_classes') else 6
+    num_classes = segmenter.num_classes if hasattr(segmenter, 'num_classes') else 8
     all_probs = np.zeros((N, num_classes), dtype=np.float32)
 
     if hasattr(segmenter, 'model'):
@@ -133,7 +133,7 @@ def build_scene(ply_path: Path, model_weights: Path | None = None,
     else:
         segmenter = UniformSegmenter()
 
-    from ..datasets.common import pack_features
+    from ..okolis_ai.datasets.common import pack_features
     feats = pack_features(rgb=rgb, intensity=None, height_above_ground=h_above)
 
     print(f"[pipeline] Running ML segmentation ({len(xyz)} points, chunks of {max_points})...")
@@ -144,7 +144,7 @@ def build_scene(ply_path: Path, model_weights: Path | None = None,
     walls = []
     plane_refs = [(p.normal, p.centroid) for p in planes]
     for s in segments:
-        if s.semantic == "wall" and s.kind == "plane" and s.normal is not None:
+        if s.semantic == "building" and s.kind == "plane" and s.normal is not None:
             pts = xyz[s.indices]
             try:
                 w = extract_wall(pts, s.normal, s.id,

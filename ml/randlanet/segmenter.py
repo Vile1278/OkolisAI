@@ -12,20 +12,31 @@ from ..base import Segmenter
 
 
 class RandLANetSegmenter(Segmenter):
-    num_classes = 6
+    num_classes = 8
 
     def __init__(self, weights: str | Path | None = None, device: str = "cuda",
-                 points_per_tile: int = 65536, in_feat_dim: int = 5):
+                 points_per_tile: int = 16384, in_feat_dim: int = 5):
         if torch is None:
             raise ImportError("Install torch to use RandLANetSegmenter")
         from .model import RandLANet
         self.device = device if torch.cuda.is_available() else "cpu"
         self.in_feat_dim = in_feat_dim
-        self.model = RandLANet(in_feat_dim=in_feat_dim,
-                               num_classes=self.num_classes).to(self.device)
+
+        # Load checkpoint and read config from it
         if weights is not None:
-            sd = torch.load(str(weights), map_location=self.device)
-            self.model.load_state_dict(sd.get("model", sd))
+            checkpoint = torch.load(str(weights), map_location=self.device,
+                                    weights_only=False)
+            cfg = checkpoint.get("cfg", {})
+            self.num_classes = cfg.get("num_classes", 8)
+            actual_in_feat_dim = cfg.get("in_feat_dim", in_feat_dim)
+        else:
+            checkpoint = None
+            actual_in_feat_dim = in_feat_dim
+
+        self.model = RandLANet(in_feat_dim=actual_in_feat_dim,
+                               num_classes=self.num_classes).to(self.device)
+        if checkpoint is not None:
+            self.model.load_state_dict(checkpoint.get("model", checkpoint))
         self.model.eval()
         self.N = points_per_tile
 
@@ -34,10 +45,8 @@ class RandLANetSegmenter(Segmenter):
         n = len(xyz)
         if features is None:
             features = np.zeros((n, self.in_feat_dim), dtype=np.float32)
-        # features already have the unified layout; pass through
         feats = features.astype(np.float32)
 
-        # Pad to N with random duplicates if small; else random-subsample in chunks.
         probs = np.zeros((n, self.num_classes), dtype=np.float32)
         counts = np.zeros(n, dtype=np.int32)
 
@@ -53,9 +62,9 @@ class RandLANetSegmenter(Segmenter):
                 idx_all = idx
             xyz_t = torch.from_numpy(xyz[idx_all]).float().unsqueeze(0).to(self.device)
             f_t = torch.from_numpy(feats[idx_all]).float().unsqueeze(0).to(self.device)
+            f_t = torch.nan_to_num(f_t, nan=0.0)
             logits = self.model(xyz_t, f_t)                   # (1,N,C)
             p = torch.softmax(logits, dim=-1).squeeze(0).cpu().numpy()
-            # accumulate only on the "real" part
             probs[idx] += p[:take]
             counts[idx] += 1
             cursor += take

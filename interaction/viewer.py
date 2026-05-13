@@ -6,12 +6,14 @@ import open3d as o3d
 from ..scene.scene import Scene
 
 CLASS_COLORS = {
-    "unlabeled": [0.5, 0.5, 0.5],
-    "ground":    [0.55, 0.45, 0.30],
-    "road":      [0.20, 0.20, 0.20],
-    "wall":      [0.85, 0.75, 0.60],
-    "nature":    [0.30, 0.60, 0.30],
-    "object":    [0.90, 0.40, 0.30],
+    "unlabeled":  [0.50, 0.50, 0.50],
+    "ground":     [0.60, 0.40, 0.20],
+    "road":       [0.25, 0.25, 0.25],
+    "sidewalk":   [0.70, 0.70, 0.70],
+    "building":   [0.90, 0.20, 0.20],
+    "fence":      [0.90, 0.60, 0.10],
+    "vegetation": [0.10, 0.65, 0.10],
+    "pole":       [0.90, 0.90, 0.20],
 }
 
 

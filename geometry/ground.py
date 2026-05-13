@@ -73,9 +73,12 @@ def height_above_ground(pcd: o3d.geometry.PointCloud,
     if len(g) == 0:
         return xyz[:, 2] - xyz[:, 2].min()
     # Grid lookup: for each (x,y) cell, store median z of ground points.
+    # IMPORTANT: compute max_iy from ALL points (not just ground) to avoid
+    # key collisions when non-ground points extend beyond ground Y range.
+    all_iy = np.floor((xyz[:, 1] - xyz[:, 1].min()) / cell).astype(np.int64)
+    max_iy = int(all_iy.max()) + 1 if len(all_iy) else 1
     ix = np.floor((g[:, 0] - xyz[:, 0].min()) / cell).astype(np.int64)
     iy = np.floor((g[:, 1] - xyz[:, 1].min()) / cell).astype(np.int64)
-    max_iy = iy.max() + 1 if len(iy) else 1
     keys = ix * max_iy + iy
     table: dict[int, list] = {}
     for k, z in zip(keys, g[:, 2]):

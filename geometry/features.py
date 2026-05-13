@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 
-@dataclass
+@dataclass(eq=False)
 class SegmentFeatures:
     n_points: int
     centroid: np.ndarray

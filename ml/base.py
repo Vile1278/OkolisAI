@@ -15,7 +15,7 @@ class Segmenter(ABC):
 class UniformSegmenter(Segmenter):
     """Debug/no-op segmenter: uniform probabilities. Lets the geometry-only
     pipeline run end-to-end before ML weights exist."""
-    num_classes = 6
+    num_classes = 8
 
     def predict(self, xyz: np.ndarray, features: np.ndarray | None = None) -> np.ndarray:
         n = len(xyz)
