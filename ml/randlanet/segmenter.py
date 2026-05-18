@@ -33,8 +33,24 @@ class RandLANetSegmenter(Segmenter):
             checkpoint = None
             actual_in_feat_dim = in_feat_dim
 
-        self.model = RandLANet(in_feat_dim=actual_in_feat_dim,
-                               num_classes=self.num_classes).to(self.device)
+        # Extract PTv3 architecture config from checkpoint if available
+        ptv3_cfg = cfg.get("ptv3", {})
+        model_kwargs = dict(
+            in_feat_dim=actual_in_feat_dim,
+            num_classes=self.num_classes,
+        )
+        if ptv3_cfg:
+            model_kwargs.update(
+                dims=tuple(ptv3_cfg["dims"]),
+                num_heads=tuple(ptv3_cfg["num_heads"]),
+                depths=tuple(ptv3_cfg["depths"]),
+                window_size=ptv3_cfg.get("window_size", 256),
+                grid_sizes=tuple(ptv3_cfg["grid_sizes"]),
+                serialize_grid=ptv3_cfg.get("serialize_grid", 0.04),
+                drop=ptv3_cfg.get("drop", 0.0),
+            )
+
+        self.model = RandLANet(**model_kwargs).to(self.device)
         if checkpoint is not None:
             self.model.load_state_dict(checkpoint.get("model", checkpoint))
         self.model.eval()

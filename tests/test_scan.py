@@ -81,10 +81,24 @@ def main():
 
     model_cfg = checkpoint.get("cfg", {})
     num_classes = model_cfg.get("num_classes", NUM_CLASSES)
-    model = RandLANet(
+    # Extract PTv3 architecture config from checkpoint
+    ptv3_cfg = model_cfg.get("ptv3", {})
+    model_kwargs = dict(
         in_feat_dim=model_cfg.get("in_feat_dim", 5),
-        num_classes=num_classes
-    ).to(device)
+        num_classes=num_classes,
+    )
+    if ptv3_cfg:
+        model_kwargs.update(
+            dims=tuple(ptv3_cfg["dims"]),
+            num_heads=tuple(ptv3_cfg["num_heads"]),
+            depths=tuple(ptv3_cfg["depths"]),
+            window_size=ptv3_cfg.get("window_size", 256),
+            grid_sizes=tuple(ptv3_cfg["grid_sizes"]),
+            serialize_grid=ptv3_cfg.get("serialize_grid", 0.04),
+            drop=ptv3_cfg.get("drop", 0.0),
+        )
+
+    model = RandLANet(**model_kwargs).to(device)
     model.load_state_dict(checkpoint["model"])
     model.eval()
 
